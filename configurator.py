@@ -62,8 +62,8 @@ class Form(QDialog):
         path = self.ui.path.text()
         colour = ColorPicker().getColor()  # this is actually so dumb
         hexcolour = '%02x%02x%02x' % (int(colour[0]),  # vvvvvvvvvvvvvvvvvvvvvvvv
-                                      int(colour[1]) if int(colour[0]) != 255 and int(colour[1]) else int(colour[1]) + 1,
-                                      int(colour[2]) if int(colour[0]) != 255 and int(colour[2]) else int(colour[2]) + 1)
+                                      int(colour[1]) if int(colour[0]) != 255 or not int(colour[1]) else int(colour[1]) + 1,
+                                      int(colour[2]) if int(colour[0]) != 255 or not int(colour[2]) else int(colour[2]) + 1)
         if self.ui.checkBox.isChecked():
             if not re.match(self.urlregexp, self.ui.remote.text()):
                 errbox = QMessageBox()
@@ -73,6 +73,15 @@ class Form(QDialog):
             self.addNewRepo(path, self.ui.remote.text(), hexcolour)
         else:
             self.addRepoFromExisting(path, hexcolour)
+
+        self.ui.table.setRowCount(len(repos) + 1)
+        self.ui.table.setItem(0, 1, QTableWidgetItem("Repository path"))
+        self.ui.table.setItem(0, 0, QTableWidgetItem("Colour"))
+        for i, r in enumerate(repos):
+            self.ui.table.setItem(i + 1, 1, QTableWidgetItem(r[0]))
+            colourcell = QTableWidgetItem(f"0x{str(hex(r[1]))[2:].zfill(6)}")
+            colourcell.setBackground(QColor(r[1]))
+            self.ui.table.setItem(i + 1, 0, colourcell)
 
     @staticmethod
     def addRepoFromExisting(path, hexcolour):

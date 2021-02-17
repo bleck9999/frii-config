@@ -59,7 +59,7 @@ class Ui_Form(object):
         self.addButton.setText(QCoreApplication.translate("Form", u"Add repository", None))
         self.path.setText(QCoreApplication.translate("Form", u"Enter repository path here", None))
         self.remote.setText(QCoreApplication.translate("Form", u"Enter repository URL here", None))
-        self.checkBox.setText(QCoreApplication.translate("Form", u"Clone repository?", None))
+        self.checkBox.setText(QCoreApplication.translate("Form", u"Clone repository", None))
         self.apply.setText(QCoreApplication.translate("Form", u"Apply", None))
     # retranslateUi
 
