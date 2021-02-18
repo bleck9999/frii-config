@@ -30,21 +30,14 @@ class Form(QDialog):
         self.urlregexp = re.compile("http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+")
         self.ui = Ui_Form()
         self.ui.setupUi(self)
-
-        self.ui.table.setRowCount(len(repos))
-        self.ui.table.setHorizontalHeaderLabels(["Colour", "Repository path"])
-        for i, r in enumerate(repos):
-            self.ui.table.setItem(i, 1, QTableWidgetItem(r[0]))
-            colourcell = QTableWidgetItem(f"0x{str(hex(r[1]))[2:].zfill(6)}")
-            colourcell.setBackground(QColor(r[1]))
-            self.ui.table.setItem(i, 0, colourcell)
-
         self.ui.addButton.clicked.connect(self.addHandler)
         self.ui.checkBox.stateChanged.connect(lambda: self.ui.remote.setEnabled(self.ui.checkBox.isChecked()))
         self.ui.apply.clicked.connect(self.apply)
         self.ui.table.itemSelectionChanged.connect(self.onSelectedTableItem)
         self.ui.cancel.clicked.connect(lambda: self.close())
         self.ui.delentry.clicked.connect(self.deleteEntry)
+
+        self.updateTable()
 
     @Slot()
     def deleteEntry(self):
@@ -73,14 +66,12 @@ class Form(QDialog):
         self.updateTable()
 
     def updateTable(self):
-        self.ui.table.setRowCount(len(repos) + 1)  # redraw table to update for any changes
-        self.ui.table.setItem(0, 1, QTableWidgetItem("Repository path"))
-        self.ui.table.setItem(0, 0, QTableWidgetItem("Colour"))
+        self.ui.table.setRowCount(len(repos))  # redraw table to update for any changes
         for i, r in enumerate(repos):
-            self.ui.table.setItem(i + 1, 1, QTableWidgetItem(r[0]))
+            self.ui.table.setItem(i, 1, QTableWidgetItem(r[0]))
             colourcell = QTableWidgetItem(f"0x{str(hex(r[1]))[2:].zfill(6)}")
             colourcell.setBackground(QColor(r[1]))
-            self.ui.table.setItem(i + 1, 0, colourcell)
+            self.ui.table.setItem(i, 0, colourcell)
 
     @Slot()
     def onSelectedTableItem(self):
