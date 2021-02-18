@@ -13,6 +13,7 @@ from window import Ui_Form
 
 repos = []
 sysupdates = []
+selected = []
 # TODO:
 # - load existing config                          done
 # - create empty config if none is present        done
@@ -21,7 +22,7 @@ sysupdates = []
 # - write changes to config                       done
 # - colour picker                                 done
 # - deal with the sysupdates part somehow         done
-# - remove repositories
+# - remove repositories                           done
 # - allow cli arguments (maybe)
 class Form(QDialog):
     def __init__(self, parent=None):
@@ -30,18 +31,67 @@ class Form(QDialog):
         self.ui = Ui_Form()
         self.ui.setupUi(self)
 
-        self.ui.table.setRowCount(len(repos)+1)
+        self.ui.table.setRowCount(len(repos))
+        self.ui.table.setHorizontalHeaderLabels(["Colour", "Repository path"])
+        for i, r in enumerate(repos):
+            self.ui.table.setItem(i, 1, QTableWidgetItem(r[0]))
+            colourcell = QTableWidgetItem(f"0x{str(hex(r[1]))[2:].zfill(6)}")
+            colourcell.setBackground(QColor(r[1]))
+            self.ui.table.setItem(i, 0, colourcell)
+
+        self.ui.addButton.clicked.connect(self.addHandler)
+        self.ui.checkBox.stateChanged.connect(lambda: self.ui.remote.setEnabled(self.ui.checkBox.isChecked()))
+        self.ui.apply.clicked.connect(self.apply)
+        self.ui.table.itemSelectionChanged.connect(self.onSelectedTableItem)
+        self.ui.cancel.clicked.connect(lambda: self.close())
+        self.ui.delentry.clicked.connect(self.deleteEntry)
+
+    @Slot()
+    def deleteEntry(self):
+        confirm = QMessageBox()
+        msg = "The following entries will be deleted:\n"
+        for path in selected:
+            msg += path + "\n"
+        msg += "Are you sure?"
+        confirm.setText(msg)
+        confirm.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
+        if confirm.exec() != QMessageBox.Yes:
+            return
+
+        todel = []
+        for repo in enumerate(repos):
+            if repo[1][0] in selected:
+                todel.append(repo[0])
+        todel.reverse()
+        for i in todel:
+            repos.pop(i)
+
+        msgbox = QMessageBox()
+        msgbox.setText(f"Successfully removed {len(todel)} entries!")
+        msgbox.exec()
+
+        self.updateTable()
+
+    def updateTable(self):
+        self.ui.table.setRowCount(len(repos) + 1)  # redraw table to update for any changes
         self.ui.table.setItem(0, 1, QTableWidgetItem("Repository path"))
         self.ui.table.setItem(0, 0, QTableWidgetItem("Colour"))
         for i, r in enumerate(repos):
-            self.ui.table.setItem(i+1, 1, QTableWidgetItem(r[0]))
+            self.ui.table.setItem(i + 1, 1, QTableWidgetItem(r[0]))
             colourcell = QTableWidgetItem(f"0x{str(hex(r[1]))[2:].zfill(6)}")
             colourcell.setBackground(QColor(r[1]))
-            self.ui.table.setItem(i+1, 0, colourcell)
+            self.ui.table.setItem(i + 1, 0, colourcell)
 
-        self.ui.addButton.clicked.connect(self.addHandler)
-        self.ui.checkBox.stateChanged.connect(self.toggleRemote)
-        self.ui.apply.clicked.connect(self.apply)
+    @Slot()
+    def onSelectedTableItem(self):
+        selected.clear()
+        if len(self.ui.table.selectedItems()) >= 2:  # at least 1 row is selected
+            self.ui.delentry.setEnabled(True)
+            for item in self.ui.table.selectedItems():
+                if item.column() == 1:
+                    selected.append(item.text())
+        else:
+            self.ui.delentry.setEnabled(False)
 
     @staticmethod
     @Slot()
@@ -54,14 +104,10 @@ class Form(QDialog):
         return
 
     @Slot()
-    def toggleRemote(self):
-        self.ui.remote.setEnabled(self.ui.checkBox.isChecked())
-
-    @Slot()
     def addHandler(self):
         path = self.ui.path.text()
-        colour = ColorPicker().getColor()  # this is actually so dumb
-        hexcolour = '%02x%02x%02x' % (int(colour[0]),  # vvvvvvvvvvvvvvvvvvvvvvvv
+        colour = ColorPicker().getColor()
+        hexcolour = '%02x%02x%02x' % (int(colour[0]),  # this is actually so dumb
                                       int(colour[1]) if int(colour[0]) != 255 or not int(colour[1]) else int(colour[1]) + 1,
                                       int(colour[2]) if int(colour[0]) != 255 or not int(colour[2]) else int(colour[2]) + 1)
         if self.ui.checkBox.isChecked():
@@ -74,14 +120,7 @@ class Form(QDialog):
         else:
             self.addRepoFromExisting(path, hexcolour)
 
-        self.ui.table.setRowCount(len(repos) + 1)
-        self.ui.table.setItem(0, 1, QTableWidgetItem("Repository path"))
-        self.ui.table.setItem(0, 0, QTableWidgetItem("Colour"))
-        for i, r in enumerate(repos):
-            self.ui.table.setItem(i + 1, 1, QTableWidgetItem(r[0]))
-            colourcell = QTableWidgetItem(f"0x{str(hex(r[1]))[2:].zfill(6)}")
-            colourcell.setBackground(QColor(r[1]))
-            self.ui.table.setItem(i + 1, 0, colourcell)
+        self.updateTable()
 
     @staticmethod
     def addRepoFromExisting(path, hexcolour):
@@ -92,7 +131,7 @@ class Form(QDialog):
             errbox.setText("Path not found")
             errbox.exec()                               # look we've got error messages and everything
             return
-        except git.exc.InvalidGitRepositoryError:        # means it *has* to be good code
+        except git.exc.InvalidGitRepositoryError:       # means it *has* to be good code
             errbox = QMessageBox()
             errbox.setText("Path does not contain a valid git repository")
             errbox.exec()
@@ -100,7 +139,7 @@ class Form(QDialog):
         if "origin" in repo.remotes:
             if not repo.remotes["origin"].url:
                 errbox = QMessageBox()
-                errbox.setText("Missing origin URL")
+                errbox.setText("Missing origin URL, how on earth did you manage that?")
                 errbox.exec()  # if anyone manages to get this error i will be very surprised
                 return
         else:
