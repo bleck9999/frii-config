@@ -30,6 +30,8 @@ class Form(QDialog):
         self.urlregexp = re.compile("http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+")
         self.ui = Ui_Form()
         self.ui.setupUi(self)
+
+        self.ui.table.setHorizontalHeaderLabels(["Colour", "Path"])
         self.ui.addButton.clicked.connect(self.addHandler)
         self.ui.checkBox.stateChanged.connect(lambda: self.ui.remote.setEnabled(self.ui.checkBox.isChecked()))
         self.ui.apply.clicked.connect(self.apply)
@@ -170,7 +172,8 @@ class Form(QDialog):
                 errbox.exec()
                 return
 
-        os.system(f"git clone {remote} {path} -v")  # forget it im not dealing with gitpythons bs
+        os.system(f"git clone '{remote}' '{path}' -v")  # forget it im not dealing with gitpythons bs
+        repos.append([path, int(hexcolour, 16)])
 
         msgbox = QMessageBox()
         msgbox.setText(f"Repository successfully cloned to {path}")

@@ -11,7 +11,7 @@
    </rect>
   </property>
   <property name="windowTitle">
-   <string>Form</string>
+   <string>frii-config</string>
   </property>
   <widget class="QPushButton" name="addButton">
    <property name="geometry">

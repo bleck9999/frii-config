@@ -67,7 +67,7 @@ class Ui_Form(object):
     # setupUi
 
     def retranslateUi(self, Form):
-        Form.setWindowTitle(QCoreApplication.translate("Form", u"Form", None))
+        Form.setWindowTitle(QCoreApplication.translate("Form", u"frii-config", None))
         self.addButton.setText(QCoreApplication.translate("Form", u"Next", None))
         self.path.setText(QCoreApplication.translate("Form", u"Enter repository path here", None))
         self.remote.setText(QCoreApplication.translate("Form", u"Enter repository URL here", None))
