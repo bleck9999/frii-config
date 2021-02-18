@@ -20,7 +20,7 @@ class Ui_Form(object):
         Form.resize(661, 526)
         self.addButton = QPushButton(Form)
         self.addButton.setObjectName(u"addButton")
-        self.addButton.setGeometry(QRect(270, 130, 101, 22))
+        self.addButton.setGeometry(QRect(280, 130, 61, 22))
         self.path = QLineEdit(Form)
         self.path.setObjectName(u"path")
         self.path.setGeometry(QRect(20, 30, 601, 22))
@@ -68,7 +68,7 @@ class Ui_Form(object):
 
     def retranslateUi(self, Form):
         Form.setWindowTitle(QCoreApplication.translate("Form", u"Form", None))
-        self.addButton.setText(QCoreApplication.translate("Form", u"Add repository", None))
+        self.addButton.setText(QCoreApplication.translate("Form", u"Next", None))
         self.path.setText(QCoreApplication.translate("Form", u"Enter repository path here", None))
         self.remote.setText(QCoreApplication.translate("Form", u"Enter repository URL here", None))
         self.checkBox.setText(QCoreApplication.translate("Form", u"Clone repository", None))
