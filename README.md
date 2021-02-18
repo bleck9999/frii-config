@@ -5,13 +5,12 @@ featuring such things as checkboxes*, pushbuttons and even a table for maximum u
 
 now instead of manually creating a json, you can just type a path and use the very intuitive colour picker (originally created by [nlfmt](https://github.com/nlfmt/)).
 it even shoves it into a json for you, and at some point if you decide you don't like a repository anymore, 
-you can remove it.**
+you can remove it, and thanks to pain and suffering you can even remove multiple at a time!
 
 but maybe you're old school, and you hate these new-fangled "GUI" things people keep going on about. 
-well worry not, because it even accepts command line arguments to add a repository***
+well worry not, because it even accepts command line arguments to add a repository**
 
 in fact, this may even work on other machines and other operating systems, including windows who knows i should probably do some research because i have no idea
 
 *legal disclaimer: there is only 1 checkbox  
-**not quite finished yet  
-***coming soon to a terminal near you
+**coming soon to a terminal near you
