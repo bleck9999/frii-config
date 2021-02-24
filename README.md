@@ -8,9 +8,9 @@ it even shoves it into a json for you, and at some point if you decide you don't
 you can remove it, and thanks to pain and suffering you can even remove multiple at a time!
 
 but maybe you're old school, and you hate these new-fangled "GUI" things people keep going on about. 
-well worry not, because it even accepts command line arguments to add a repository**
+well worry not, because it even accepts command line arguments to do things instead, because everybody knows mice are just bloatware
+(run with `--help` to see usage)
 
 in fact, this may even work on other machines and other operating systems, including windows who knows i should probably do some research because i have no idea
 
-*legal disclaimer: there is only 1 checkbox  
-**coming soon to a terminal near you
+*legal disclaimer: there is only 1 checkbox
