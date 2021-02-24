@@ -4,9 +4,8 @@ import git
 import json
 import os
 from colorpicker import ColorPicker
-from PySide6.QtWidgets import (QLineEdit, QPushButton, QApplication,
-                               QVBoxLayout, QDialog, QMessageBox,
-                               QCheckBox, QTableWidget, QTableWidgetItem)
+from PySide6.QtWidgets import (QApplication, QDialog, QMessageBox,
+                               QTableWidgetItem)
 from PySide6.QtCore import Slot
 from PySide6.QtGui import QColor
 from window import Ui_Form
