@@ -1,6 +1,6 @@
 companion app for [frii-update](https://github.com/bleck9999/frii-update) to make configuration less annoying
 
-using only the finest Qt6 bindings (*modern™*) this script spawns a 661x526 box on your cathode ray tube ready for your eyes to molest.
+using only the finest Qt6 bindings (*modern™*) this script spawns a 661x576 box on your cathode ray tube ready for your eyes to molest.
 featuring such things as checkboxes*, pushbuttons and even a table for maximum user interfacing, you'll be opening this script just to look at it!
 
 now instead of manually creating a json, you can just type a path and use the very intuitive colour picker (originally created by [nlfmt](https://github.com/nlfmt/)).

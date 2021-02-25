@@ -5,45 +5,80 @@ import json
 import os
 from colorpicker import ColorPicker
 from PySide6.QtWidgets import (QApplication, QDialog, QMessageBox,
-                               QTableWidgetItem)
+                               QTableWidgetItem, QFileDialog)
 from PySide6.QtCore import Slot
 from PySide6.QtGui import QColor
 from window import Ui_Form
 
-repos = []
-sysupdates = []
-selected = []
-file_path = "../info.json"
 # TODO:
-# - check if entry exists (cli/gui)
+# - check if entry exists (cli/gui)               done
 # - edit entries
-# - change config file path (gui)
+# - change config file path (gui)                 done
 # - option to delete folder as well as entry
 # - allow cli arguments                           done
 
 
 class Form(QDialog):
-    def __init__(self, parent=None):
+    def __init__(self, contents, config_path, parent=None):
         super(Form, self).__init__(parent)
         self.urlregexp = re.compile("http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+")
         self.ui = Ui_Form()
         self.ui.setupUi(self)
 
+        self.config_path = config_path
+        self.repos = contents["repos"]
+        self.sysupdates = contents["sysupdates"]
+        self.selected = []
+
         self.ui.table.setHorizontalHeaderLabels(["Colour", "Path"])
         self.ui.addButton.clicked.connect(self.addHandler)
         self.ui.checkBox.stateChanged.connect(lambda: self.ui.remote.setEnabled(self.ui.checkBox.isChecked()))
-        self.ui.apply.clicked.connect(self.apply)
+        self.ui.apply.clicked.connect(lambda: self.apply([self.repos, self.sysupdates]))
         self.ui.table.itemSelectionChanged.connect(self.onSelectedTableItem)
         self.ui.cancel.clicked.connect(lambda: self.close())
         self.ui.delentry.clicked.connect(self.deleteEntry)
+        self.ui.changeButton.clicked.connect(self.changePath)
+        self.ui.textBrowser.setText(self.config_path)
 
         self.updateTable()
+
+    @Slot()
+    def changePath(self):
+        tmp = QFileDialog.getOpenFileName(self, "Open config", os.getcwd(), "JSON files (*.json)")[0]
+        if tmp != '':
+            if open(self.config_path).read() != '':
+                old = json.load(open(self.config_path))
+            else:
+                old = {"repos": [], "sysupdates": []}
+
+            if old["repos"] == self.repos and old["sysupdates"] == self.sysupdates:
+                pass
+            else:
+                confirm = QMessageBox()
+                confirm.setText("You have unsaved changes. Would you like to save them now?")
+                confirm.setStandardButtons(QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel)
+                ret = confirm.exec()
+                if ret == QMessageBox.Cancel:
+                    return
+                elif ret == QMessageBox.Yes:
+                    self.apply([self.repos, self.sysupdates])
+
+            if open(tmp).read() != '':
+                contents = json.load(open(tmp))
+                self.repos = contents["repos"]
+                self.sysupdates = contents["sysupdates"]
+            else:
+                self.repos = []
+                self.sysupdates = []
+            self.updateTable()
+            self.config_path = tmp
+            self.ui.textBrowser.setText(self.config_path)
 
     @Slot()
     def deleteEntry(self):
         confirm = QMessageBox()
         msg = "The following entries will be deleted:\n"
-        for path in selected:
+        for path in self.selected:
             msg += path + "\n"
         msg += "Are you sure?"
         confirm.setText(msg)
@@ -52,12 +87,12 @@ class Form(QDialog):
             return
 
         todel = []
-        for repo in enumerate(repos):
-            if repo[1][0] in selected:
+        for repo in enumerate(self.repos):
+            if repo[1][0] in self.selected:
                 todel.append(repo[0])
         todel.reverse()
         for i in todel:
-            repos.pop(i)
+            self.repos.pop(i)
 
         msgbox = QMessageBox()
         msgbox.setText(f"Successfully removed {len(todel)} entries!")
@@ -66,8 +101,8 @@ class Form(QDialog):
         self.updateTable()
 
     def updateTable(self):
-        self.ui.table.setRowCount(len(repos))  # redraw table to update for any changes
-        for i, r in enumerate(repos):
+        self.ui.table.setRowCount(len(self.repos))  # redraw table to update for any changes
+        for i, r in enumerate(self.repos):
             self.ui.table.setItem(i, 1, QTableWidgetItem(r[0]))
             colourcell = QTableWidgetItem(f"0x{str(hex(r[1]))[2:].zfill(6)}")
             colourcell.setBackground(QColor(r[1]))
@@ -75,20 +110,20 @@ class Form(QDialog):
 
     @Slot()
     def onSelectedTableItem(self):
-        selected.clear()
+        self.selected.clear()
         if len(self.ui.table.selectedItems()) >= 2:  # at least 1 row is selected
             self.ui.delentry.setEnabled(True)
             for item in self.ui.table.selectedItems():
                 if item.column() == 1:
-                    selected.append(item.text())
+                    self.selected.append(item.text())
         else:
             self.ui.delentry.setEnabled(False)
 
     @staticmethod
     @Slot()
-    def apply(quiet=False):
-        json.dump({"repos": repos,
-                   "sysupdates": sysupdates}, open(file_path, "w"))
+    def apply(contents, quiet=False):
+        json.dump({"repos": contents[0],
+                   "sysupdates": contents[1]}, open(config_path, "w"))
         if not quiet:
             msgbox = QMessageBox()
             msgbox.setText("Done!")
@@ -98,6 +133,12 @@ class Form(QDialog):
     @Slot()
     def addHandler(self):
         path = self.ui.path.text()
+        for r in enumerate(repos):
+            if r[1][0] == path:
+                errbox = QMessageBox()
+                errbox.setText(f"{path} is already listed in {config_path}")
+                errbox.exec()
+                return
         colour = ColorPicker().getColor()
         hexcolour = '%02x%02x%02x' % (int(colour[0]),  # this is actually so dumb
                                       int(colour[1]) if int(colour[0]) != 255 or not int(colour[1]) else int(colour[1]) + 1,
@@ -108,14 +149,14 @@ class Form(QDialog):
                 errbox.setText("Invalid URL")
                 errbox.exec()
                 return
-            self.addNewRepo(path, self.ui.remote.text(), hexcolour)
+            self.addNewRepo(path, self.ui.remote.text(), hexcolour, self.repos)
         else:
-            self.addRepoFromExisting(path, hexcolour)
+            self.addRepoFromExisting(path, hexcolour, self.repos)
 
         self.updateTable()
 
     @staticmethod
-    def addRepoFromExisting(path, hexcolour, quiet=False):
+    def addRepoFromExisting(path, hexcolour, repos, quiet=False):
         try:
             repo = git.Repo(path)
         except git.exc.NoSuchPathError:
@@ -163,7 +204,7 @@ class Form(QDialog):
         return
 
     @staticmethod
-    def addNewRepo(path, remote, hexcolour, quiet=False):
+    def addNewRepo(path, remote, hexcolour, repos, quiet=False):
         if os.path.exists(path):
             if os.path.isfile(path) or os.listdir(path):
                 if quiet:
@@ -226,6 +267,10 @@ Arguments:
 -h      / --help                shows help
 """
 if __name__ == '__main__':
+    repos = []
+    sysupdates = []
+    config_path = "../info.json"
+
     if len(sys.argv) > 1:
         url = ''
         path = ''
@@ -240,9 +285,9 @@ if __name__ == '__main__':
                 elif opt[1].startswith("--clone"):  # same reason as explained below
                     url = opt[1].split('=')[1]
                 elif opt[1] == "-o":
-                    file_path = sys.argv[opt[0]+2]
+                    config_path = sys.argv[opt[0] + 2]
                 elif opt[1].startswith("--config-file"):
-                    file_path = opt[1].split('=')[1]
+                    config_path = opt[1].split('=')[1]
                 elif opt[1] == '-d' or opt[1] == "--delete":
                     mode = 'd'
                 elif opt[1] == '-l' or opt[1] == "--list":
@@ -267,13 +312,13 @@ if __name__ == '__main__':
         if colour == '' and mode == 'a':
             print("Invalid colour provided")
             sys.exit(2)
-        if os.path.exists(file_path):
-            file = json.load(open(file_path))
+        if os.path.exists(config_path):
+            file = json.load(open(config_path))
             sysupdates = file["sysupdates"]
             repos = file["repos"]
         else:
             if input("Specified config file does not exist. Create it? [Y/N]: ").lower() == 'y':
-                open(file_path, 'w')
+                open(config_path, 'w')
             else:
                 sys.exit()
 
@@ -294,28 +339,35 @@ if __name__ == '__main__':
                 print("Exiting")
                 sys.exit()
         elif mode == 'l':
-            print(f"Entries in {file_path}")
+            print(f"Entries in {config_path}")
             for i in repos:
                 print(f"{i[0]}, {hex(i[1])}")
         elif mode == 'a':
-            if url != '':
-                if Form.addNewRepo(path, url, colour, True):
+            for r in enumerate(repos):
+                if r[1][0] == path:
+                    print(f"{path} is already listed in {config_path}")
                     sys.exit(1)
+            if url != '':
+                if re.match("http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+", url):
+                    if Form.addNewRepo(path, url, colour, repos, True):
+                        sys.exit(1)
+                else:
+                    print("Invalid url provided")
+                    sys.exit(2)
             else:
-                if Form.addRepoFromExisting(path, colour, True):
+                if Form.addRepoFromExisting(path, colour, repos, True):
                     sys.exit(1)
             print("Saving changes")
-            Form.apply(True)
+            Form.apply([repos, sysupdates], True)
 
     else:
-        if os.path.exists(file_path):
-            file = json.load(open(file_path))
-            sysupdates = file["sysupdates"]
-            repos = file["repos"]
+        file = []
+        if os.path.exists(config_path):
+            file = json.load(open(config_path))
         # Create the Qt Application
         app = QApplication()
         # Create and show the form
-        form = Form()
+        form = Form(file, config_path)
         form.show()
         # Run the main Qt loop
         sys.exit(app.exec_())
