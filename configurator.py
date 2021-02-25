@@ -14,8 +14,7 @@ from window import Ui_Form
 # - check if entry exists (cli/gui)               done
 # - edit entries
 # - change config file path (gui)                 done
-# - option to delete folder as well as entry
-# - allow cli arguments                           done
+# - option to delete folder as well as entry      done
 
 
 class Form(QDialog):
@@ -86,6 +85,13 @@ class Form(QDialog):
         if confirm.exec() != QMessageBox.Yes:
             return
 
+        delfiles = False
+        confirm = QMessageBox()
+        confirm.setText(f"Would you like to delete the folder{'s' if len(self.selected) > 1 else ''} on disk as well?")
+        confirm.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
+        if confirm.exec() != QMessageBox.Yes:
+            delfiles = True
+
         todel = []
         for repo in enumerate(self.repos):
             if repo[1][0] in self.selected:
@@ -93,6 +99,8 @@ class Form(QDialog):
         todel.reverse()
         for i in todel:
             self.repos.pop(i)
+            if delfiles:
+                os.rmdir(i)
 
         msgbox = QMessageBox()
         msgbox.setText(f"Successfully removed {len(todel)} entries!")
@@ -329,6 +337,8 @@ if __name__ == '__main__':
                 for repo in enumerate(repos):
                     if repo[1][0] == path:
                         repos.pop(repo[0])
+                        if input("Would you like to on disk as well? [Y/N]: ").lower() == 'y':
+                            os.rmdir(path)
                         break
                 else:
                     print("Entry not found, no changes made")
