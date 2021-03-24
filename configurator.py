@@ -3,18 +3,15 @@ import re
 import git
 import json
 import os
+from itertools import chain
 from colorpicker import ColorPicker
 from PySide6.QtWidgets import (QApplication, QDialog, QMessageBox,
                                QTableWidgetItem, QFileDialog)
-from PySide6.QtCore import Slot
+from PySide6.QtCore import Slot, Qt
 from PySide6.QtGui import QColor
 from window import Ui_Form
-
 # TODO:
-# - check if entry exists (cli/gui)               done
 # - edit entries
-# - change config file path (gui)                 done
-# - option to delete folder as well as entry      done
 
 
 class Form(QDialog):
@@ -28,8 +25,8 @@ class Form(QDialog):
         self.repos = contents["repos"]
         self.sysupdates = contents["sysupdates"]
         self.selected = []
-
         self.ui.table.setHorizontalHeaderLabels(["Colour", "Path"])
+
         self.ui.addButton.clicked.connect(self.addHandler)
         self.ui.checkBox.stateChanged.connect(lambda: self.ui.remote.setEnabled(self.ui.checkBox.isChecked()))
         self.ui.apply.clicked.connect(lambda: self.apply([self.repos, self.sysupdates]))
@@ -38,8 +35,43 @@ class Form(QDialog):
         self.ui.delentry.clicked.connect(self.deleteEntry)
         self.ui.changeButton.clicked.connect(self.changePath)
         self.ui.textBrowser.setText(self.config_path)
+        self.ui.table.itemChanged.connect(self.onEdit)
 
         self.updateTable()
+
+    def isColour(self, col: str):
+        for i in self.repos:
+            if f"0x{str(hex(i[1]))[2:].zfill(6)}" == col:
+                return True
+        return False
+
+    @Slot()
+    def onEdit(self, item):
+        if item.text() in chain.from_iterable(self.repos) or self.isColour(item.text()):
+            return  # no change
+        else:
+            if not item.text():
+                errbox = QMessageBox()
+                errbox.setText("Path cannot be empty")
+                errbox.exec()
+                item.setText(self.repos[item.row()][0])
+                return
+            try:
+                git.Repo(item.text())
+            except git.exc.NoSuchPathError:
+                errbox = QMessageBox()
+                errbox.setText("Path not found")
+                errbox.exec()
+                item.setText(self.repos[item.row()][0])
+                return
+            except git.exc.InvalidGitRepositoryError:
+                errbox = QMessageBox()
+                errbox.setText("Path does not contain a valid git repository")
+                errbox.exec()
+                item.setText(self.repos[item.row()][0])
+                return
+            else:
+                self.repos[item.row()][0] = item.text()
 
     @Slot()
     def changePath(self):
@@ -114,6 +146,7 @@ class Form(QDialog):
             self.ui.table.setItem(i, 1, QTableWidgetItem(r[0]))
             colourcell = QTableWidgetItem(f"0x{str(hex(r[1]))[2:].zfill(6)}")
             colourcell.setBackground(QColor(r[1]))
+            colourcell.setFlags(colourcell.flags() & ~Qt.ItemIsEditable)
             self.ui.table.setItem(i, 0, colourcell)
 
     @Slot()

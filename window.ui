@@ -96,7 +96,7 @@
     </font>
    </property>
    <property name="editTriggers">
-    <set>QAbstractItemView::NoEditTriggers</set>
+    <set>QAbstractItemView::DoubleClicked</set>
    </property>
    <property name="dragEnabled">
     <bool>false</bool>
@@ -203,6 +203,17 @@
    </property>
   </widget>
  </widget>
+ <tabstops>
+  <tabstop>textBrowser</tabstop>
+  <tabstop>changeButton</tabstop>
+  <tabstop>path</tabstop>
+  <tabstop>checkBox</tabstop>
+  <tabstop>remote</tabstop>
+  <tabstop>addButton</tabstop>
+  <tabstop>delentry</tabstop>
+  <tabstop>cancel</tabstop>
+  <tabstop>apply</tabstop>
+ </tabstops>
  <resources/>
  <connections/>
 </ui>

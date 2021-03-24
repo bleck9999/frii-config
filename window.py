@@ -42,7 +42,7 @@ class Ui_Form(object):
         font = QFont()
         font.setFamily(u"Monospace")
         self.table.setFont(font)
-        self.table.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        self.table.setEditTriggers(QAbstractItemView.DoubleClicked)
         self.table.setDragEnabled(False)
         self.table.setSelectionMode(QAbstractItemView.ExtendedSelection)
         self.table.setSelectionBehavior(QAbstractItemView.SelectRows)
@@ -71,6 +71,14 @@ class Ui_Form(object):
         self.textBrowser.setGeometry(QRect(20, 30, 601, 21))
         self.textBrowser.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.textBrowser.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        QWidget.setTabOrder(self.textBrowser, self.changeButton)
+        QWidget.setTabOrder(self.changeButton, self.path)
+        QWidget.setTabOrder(self.path, self.checkBox)
+        QWidget.setTabOrder(self.checkBox, self.remote)
+        QWidget.setTabOrder(self.remote, self.addButton)
+        QWidget.setTabOrder(self.addButton, self.delentry)
+        QWidget.setTabOrder(self.delentry, self.cancel)
+        QWidget.setTabOrder(self.cancel, self.apply)
 
         self.retranslateUi(Form)
 
