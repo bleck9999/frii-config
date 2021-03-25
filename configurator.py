@@ -11,7 +11,7 @@ from PySide6.QtCore import Slot, Qt
 from PySide6.QtGui import QColor
 from window import Ui_Form
 # TODO:
-# - edit entries
+# nothing :D
 
 
 class Form(QDialog):
@@ -28,22 +28,16 @@ class Form(QDialog):
         self.ui.table.setHorizontalHeaderLabels(["Colour", "Path"])
 
         self.ui.addButton.clicked.connect(self.addHandler)
-        self.ui.checkBox.stateChanged.connect(lambda: self.ui.remote.setEnabled(self.ui.checkBox.isChecked()))
         self.ui.apply.clicked.connect(lambda: self.apply([self.repos, self.sysupdates]))
-        self.ui.table.itemSelectionChanged.connect(self.onSelectedTableItem)
         self.ui.cancel.clicked.connect(lambda: self.close())
-        self.ui.delentry.clicked.connect(self.deleteEntry)
         self.ui.changeButton.clicked.connect(self.changePath)
-        self.ui.textBrowser.setText(self.config_path)
+        self.ui.checkBox.stateChanged.connect(lambda: self.ui.remote.setEnabled(self.ui.checkBox.isChecked()))
+        self.ui.delentry.clicked.connect(self.deleteEntry)
         self.ui.table.itemChanged.connect(self.onEdit)
+        self.ui.table.itemSelectionChanged.connect(self.onSelectedTableItem)
+        self.ui.textBrowser.setText(self.config_path)
 
         self.updateTable()
-
-    def isColour(self, col: str):
-        for i in self.repos:
-            if f"0x{str(hex(i[1]))[2:].zfill(6)}" == col:
-                return True
-        return False
 
     @Slot()
     def onEdit(self, item):
@@ -208,7 +202,7 @@ class Form(QDialog):
                 errbox.setText("Path not found")
                 errbox.exec()                               # look we've got error messages and everything
             return 1
-        except git.exc.InvalidGitRepositoryError:       # means it *has* to be good code
+        except git.exc.InvalidGitRepositoryError:           # means it *has* to be good code
             if quiet:
                 print("Path does not contain a valid git repository")
             else:
@@ -291,6 +285,12 @@ class Form(QDialog):
             msgbox.setText(f"Repository successfully cloned to {path}")
             msgbox.exec()
         return
+
+    def isColour(self, col: str):
+        for x in self.repos:
+            if f"0x{str(hex(x[1]))[2:].zfill(6)}" == col:
+                return True
+        return False
 
 
 helptext = """
