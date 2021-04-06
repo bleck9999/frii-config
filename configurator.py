@@ -115,7 +115,7 @@ class Form(QDialog):
         confirm = QMessageBox()
         confirm.setText(f"Would you like to delete the folder{'s' if len(self.selected) > 1 else ''} on disk as well?")
         confirm.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
-        if confirm.exec() != QMessageBox.Yes:
+        if confirm.exec() == QMessageBox.Yes:
             delfiles = True
 
         todel = []
@@ -126,7 +126,7 @@ class Form(QDialog):
         for i in todel:
             self.repos.pop(i)
             if delfiles:
-                os.rmdir(i)
+                os.rmdir(self.repos[i][0])
 
         msgbox = QMessageBox()
         msgbox.setText(f"Successfully removed {len(todel)} entries!")
