@@ -1,3 +1,4 @@
+import configparser
 import sys
 import re
 import git
@@ -5,39 +6,154 @@ import json
 import os
 from itertools import chain
 from colorpicker import ColorPicker
-from PySide6.QtWidgets import (QApplication, QDialog, QMessageBox,
+from PySide6.QtWidgets import (QApplication, QMainWindow, QMessageBox,
                                QTableWidgetItem, QFileDialog)
 from PySide6.QtCore import Slot, Qt
-from PySide6.QtGui import QColor
-from window import Ui_Form
+from PySide6.QtGui import QColor, QFont
+from mainwindow import Ui_MainWindow
+
+
 # TODO:
-# nothing :D
+# change between frii_update.ini and info.json
+# editing needs debugging
+# adding TBC
+# deleting needs testing
+# methods left to be ported:
+#    deleteEntry
 
 
-class Form(QDialog):
-    def __init__(self, contents, config_path, parent=None):
+class Form(QMainWindow):
+    def __init__(self, json_path, ini_path, parent=None):
         super(Form, self).__init__(parent)
         self.urlregexp = re.compile("http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+")
-        self.ui = Ui_Form()
+        self.ui = Ui_MainWindow()
         self.ui.setupUi(self)
 
-        self.config_path = config_path
-        self.repos = contents["repos"]
-        self.sysupdates = contents["sysupdates"]
-        self.selected = []
+        self.json_path = json_path
+        self.ini_path = ini_path
+        jscontents = []
+        if os.path.exists(json_path):
+            jscontents = json.load(open(json_path))
+        inicontents = {}
+        if os.path.exists(ini_path):
+            inicontents = configparser.ConfigParser()
+            inicontents.read(ini_path)
+        self.inicontents = inicontents.__dict__["_sections"]  # python is a great language
+        self.indices = {}
+        n = 1
+        for x in self.inicontents:
+            self.indices[x] = n
+            n += len(self.inicontents[x]) + 1
+        self.repos = jscontents["repos"]
+        self.sysupdates = jscontents["sysupdates"]
+        self.selected = {"json": [], "ini": []}
         self.ui.table.setHorizontalHeaderLabels(["Colour", "Path"])
+        self.ui.initable.setHorizontalHeaderLabels(["Key", "Value"])
 
-        self.ui.addButton.clicked.connect(self.addHandler)
-        self.ui.apply.clicked.connect(lambda: self.apply([self.repos, self.sysupdates]))
-        self.ui.cancel.clicked.connect(lambda: self.close())
-        self.ui.changeButton.clicked.connect(self.changePath)
+        self.ui.actionExit_2.triggered.connect(self.exit)
+        self.ui.actionSave.triggered.connect(lambda: self.apply())
+        self.ui.addButton.clicked.connect(self.addRepoHandler)
+        self.ui.apply.clicked.connect(lambda: self.apply(False))
         self.ui.checkBox.stateChanged.connect(lambda: self.ui.remote.setEnabled(self.ui.checkBox.isChecked()))
         self.ui.delentry.clicked.connect(self.deleteEntry)
+        self.ui.iniapply.clicked.connect(lambda: self.apply(False))
+        self.ui.inidel.clicked.connect(self.deleteEntryini)
+        self.ui.inipath.setText(self.ini_path)
+        self.ui.initable.itemChanged.connect(self.onEditini)
+        self.ui.initable.itemSelectionChanged.connect(lambda: self.onSelectedTableItem("ini"))
+        self.ui.openjson.triggered.connect(lambda: self.openhandler("json"))
+        self.ui.openini.triggered.connect(lambda: self.openhandler("ini"))
         self.ui.table.itemChanged.connect(self.onEdit)
-        self.ui.table.itemSelectionChanged.connect(self.onSelectedTableItem)
-        self.ui.textBrowser.setText(self.config_path)
+        self.ui.table.itemSelectionChanged.connect(lambda: self.onSelectedTableItem("json"))
+        self.ui.textBrowser.setText(self.json_path)
 
-        self.updateTable()
+        self.updateTables()
+
+    def checkAndSaveChanges(self):
+        old, oldini = {}, {}
+        if open(self.json_path).read() != '':
+            old = json.load(open(self.json_path))
+        else:
+            old = {"repos": [], "sysupdates": []}
+
+        if open(self.ini_path).read() != '':
+            oldini = configparser.ConfigParser().read(self.ini_path)
+        else:
+            oldini = {}
+
+        if (old["repos"] == self.repos and old["sysupdates"] == self.sysupdates) or \
+                (oldini == self.inicontents):
+            pass
+        else:
+            confirm = QMessageBox()
+            confirm.setText("You have unsaved changes. Would you like to save them now?")
+            confirm.setStandardButtons(QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel)
+            ret = confirm.exec()
+            if ret == QMessageBox.Cancel:
+                return 1
+            elif ret == QMessageBox.Yes:
+                self.apply()
+
+    @Slot()
+    def exit(self):
+        self.checkAndSaveChanges()
+        self.close()
+
+    @Slot()
+    def onEditini(self, item):
+        # despite section headers not being editable this method is called any time an item changes
+        # this includes every time self.updateTables runs
+        # which redraws every item in the table
+        # including the section headers
+        # sigh
+        if item.row()+1 in self.indices.values():
+            return
+        elif item.column() == 0:
+            secs = 1  # SEX?!?!?!?!?!?!!?!
+            for section in self.indices:
+                if item.row() < self.indices[section]:  # first occurrence of this must always break to avoid repeating itself
+                    section = list(self.indices.keys())[secs-2]
+                    if item.text() in self.inicontents[section]:
+                        pass  # no change
+                    else:
+                        # pad: no. of section headers + no. of entries in previous sections
+                        pad = (secs-1) + (len(self.inicontents[list(self.indices)[secs-3]]) if secs > 1 else 0) + \
+                              (len(self.inicontents[list(self.indices)[secs - 4]]) if secs > 2 else 0) + \
+                              (len(self.inicontents[list(self.indices)[secs - 5]]) if secs > 3 else 0)
+                        # list is so they can be indexed by num
+                        originalKey = list(self.inicontents[section].keys()) \
+                            [item.row() - pad]
+                        if not item.text():
+                            errbox = QMessageBox()
+                            errbox.setText("Key cannot be empty")
+                            errbox.exec()
+                            item.setText(originalKey)
+                            return
+                        self.inicontents[section][item.text()] = self.ui.initable.item(item.row(), 1).text()
+                        self.inicontents[section].pop(originalKey)
+                    break
+                secs += 1
+
+        else:  # item is a value, which should in theory require less fuckery
+            secs = 1
+            for section in self.indices:
+                if item.row() < self.indices[section]:
+                    section = list(self.indices.keys())[secs-2]
+                    key = self.ui.initable.item(item.row(), 0).text()
+                    originalVal = self.inicontents[section][key]
+                    if item.text() == originalVal:
+                        pass
+                    else:
+                        if not item.text():
+                            errbox = QMessageBox()
+                            errbox.setText("Value cannot be empty")
+                            errbox.exec()
+                            item.setText(originalVal)
+                            return
+                        # TODO store types of keys and enforce typechecking
+                        self.inicontents[section][key] = item.text()
+                    break
+                secs += 1
 
     @Slot()
     def onEdit(self, item):
@@ -68,25 +184,37 @@ class Form(QDialog):
                 self.repos[item.row()][0] = item.text()
 
     @Slot()
-    def changePath(self):
+    def openhandler(self, mode):
+        if mode == "json":
+            self.changePathJson()
+        elif mode == "ini":
+            self.changePathIni()
+        else:
+            a = QMessageBox()  # error handling (tm)
+            a.setText("what the fuck")
+            a.exec()
+        return
+
+    def changePathIni(self):
+        tmp = QFileDialog.getOpenFileName(self, "Open config", os.getcwd(), "INI files (*.ini)")[0]
+        if tmp != '':
+            if self.checkAndSaveChanges() == 1:
+                return
+
+            if open(tmp).read() != '':
+                contents = configparser.ConfigParser().read(tmp).__dict__["_sections"]
+                self.inicontents = contents
+            else:
+                self.inicontents = {}
+            self.updateTables()
+            self.ini_path = tmp
+            self.ui.inipath.setText(self.ini_path)
+
+    def changePathJson(self):
         tmp = QFileDialog.getOpenFileName(self, "Open config", os.getcwd(), "JSON files (*.json)")[0]
         if tmp != '':
-            if open(self.config_path).read() != '':
-                old = json.load(open(self.config_path))
-            else:
-                old = {"repos": [], "sysupdates": []}
-
-            if old["repos"] == self.repos and old["sysupdates"] == self.sysupdates:
-                pass
-            else:
-                confirm = QMessageBox()
-                confirm.setText("You have unsaved changes. Would you like to save them now?")
-                confirm.setStandardButtons(QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel)
-                ret = confirm.exec()
-                if ret == QMessageBox.Cancel:
-                    return
-                elif ret == QMessageBox.Yes:
-                    self.apply([self.repos, self.sysupdates])
+            if self.checkAndSaveChanges() == 1:
+                return
 
             if open(tmp).read() != '':
                 contents = json.load(open(tmp))
@@ -95,15 +223,36 @@ class Form(QDialog):
             else:
                 self.repos = []
                 self.sysupdates = []
-            self.updateTable()
-            self.config_path = tmp
-            self.ui.textBrowser.setText(self.config_path)
+            self.updateTables()
+            self.json_path = tmp
+            self.ui.textBrowser.setText(self.json_path)
+
+    @Slot()
+    def deleteEntryini(self):
+        confirm = QMessageBox()
+        msg = "The following keys will be deleted:\n"
+        for key in self.selected["ini"]:
+            msg += key[0] + "\n"
+        msg += "Are you sure?"
+        confirm.setText(msg)
+        confirm.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
+        if confirm.exec() != QMessageBox.Yes:
+            return
+
+        for item in self.selected["ini"]:
+            s = 0
+            for section in self.indices:
+                if item[1] < self.indices[section]:
+                    self.inicontents[list(self.indices)[s-2]].pop(item[0])
+                s += 1
+
+        self.updateTables()
 
     @Slot()
     def deleteEntry(self):
         confirm = QMessageBox()
         msg = "The following entries will be deleted:\n"
-        for path in self.selected:
+        for path in self.selected["json"]:
             msg += path + "\n"
         msg += "Are you sure?"
         confirm.setText(msg)
@@ -113,14 +262,14 @@ class Form(QDialog):
 
         delfiles = False
         confirm = QMessageBox()
-        confirm.setText(f"Would you like to delete the folder{'s' if len(self.selected) > 1 else ''} on disk as well?")
+        confirm.setText(f"Would you like to delete the folder{'s' if len(self.selected['json']) > 1 else ''} on disk as well?")
         confirm.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
         if confirm.exec() == QMessageBox.Yes:
             delfiles = True
 
         todel = []
         for repo in enumerate(self.repos):
-            if repo[1][0] in self.selected:
+            if repo[1][0] in self.selected['json']:
                 todel.append(repo[0])
         todel.reverse()
         for i in todel:
@@ -132,9 +281,9 @@ class Form(QDialog):
         msgbox.setText(f"Successfully removed {len(todel)} entries!")
         msgbox.exec()
 
-        self.updateTable()
+        self.updateTables()
 
-    def updateTable(self):
+    def updateTables(self):
         self.ui.table.setRowCount(len(self.repos))  # redraw table to update for any changes
         for i, r in enumerate(self.repos):
             self.ui.table.setItem(i, 1, QTableWidgetItem(r[0]))
@@ -143,22 +292,60 @@ class Form(QDialog):
             colourcell.setFlags(colourcell.flags() & ~Qt.ItemIsEditable)
             self.ui.table.setItem(i, 0, colourcell)
 
-    @Slot()
-    def onSelectedTableItem(self):
-        self.selected.clear()
-        if len(self.ui.table.selectedItems()) >= 2:  # at least 1 row is selected
-            self.ui.delentry.setEnabled(True)
-            for item in self.ui.table.selectedItems():
-                if item.column() == 1:
-                    self.selected.append(item.text())
-        else:
-            self.ui.delentry.setEnabled(False)
+        # total objects in nested dict, length of all values + number of columns
+        self.ui.initable.setRowCount(sum(len(v) for v in self.inicontents.values()) + len(self.inicontents))
+        secfont = QFont()
+        secfont.setFamily(u"Sans Serif")
+        secfont.setBold(True)
+        pos = 0
+        for sec in self.inicontents:
+            item = QTableWidgetItem(sec)
+            item.setFont(secfont)
+            item.setFlags(item.flags() & ~Qt.ItemIsEditable)
+            self.ui.initable.setItem(pos, 0, item)
+            item = QTableWidgetItem()                           # empty tile next to section header
+            item.setFlags(item.flags() & ~Qt.ItemIsEditable)    # done to prevent editing the blank space
+            self.ui.initable.setItem(pos, 1, item)
+            pos += 1
+            for k, v in zip(self.inicontents[sec].keys(), self.inicontents[sec].values()):
+                self.ui.initable.setItem(pos, 0, QTableWidgetItem(k))
+                self.ui.initable.setItem(pos, 1, QTableWidgetItem(v))
+                pos += 1
 
-    @staticmethod
     @Slot()
-    def apply(contents, quiet=False):
-        json.dump({"repos": contents[0],
-                   "sysupdates": contents[1]}, open(config_path, "w"))
+    def onSelectedTableItem(self, mode):
+        if mode == "json":
+            self.selected["json"].clear()
+            if len(self.ui.table.selectedItems()) >= 2:  # at least 1 row is selected
+                self.ui.delentry.setEnabled(True)
+                for item in self.ui.table.selectedItems():
+                    if item.column() == 1:
+                        self.selected["json"].append(item.text())
+            else:
+                self.ui.delentry.setEnabled(False)
+
+        elif mode == "ini":
+            self.selected["ini"].clear()
+            if len(self.ui.initable.selectedItems()) >= 2:  # at least 1 row is selected
+                self.ui.inidel.setEnabled(True)
+                for item in self.ui.initable.selectedItems():
+                    if item.column() == 0:                  # here we want keys not values
+                        self.selected["ini"].append((item.text(), item.row()))  # we need the row for key deletions
+            else:
+                self.ui.inidel.setEnabled(False)
+
+        else:
+            raise Exception("You did a fuck")
+
+    @Slot()
+    def apply(self, quiet=True):
+        json.dump({"repos": self.repos,
+                   "sysupdates": self.sysupdates}, open(self.json_path, "w"))
+
+        ini = configparser.ConfigParser()
+        ini.__dict__["_sections"] = self.inicontents
+        ini.write(open(self.ini_path, "w"))
+
         if not quiet:
             msgbox = QMessageBox()
             msgbox.setText("Done!")
@@ -166,18 +353,20 @@ class Form(QDialog):
         return
 
     @Slot()
-    def addHandler(self):
+    def addRepoHandler(self):
         path = self.ui.path.text()
-        for r in enumerate(repos):
+        for r in enumerate(self.repos):
             if r[1][0] == path:
                 errbox = QMessageBox()
-                errbox.setText(f"{path} is already listed in {config_path}")
+                errbox.setText(f"{path} is already listed in {self.json_path}")
                 errbox.exec()
                 return
         colour = ColorPicker().getColor()
         hexcolour = '%02x%02x%02x' % (int(colour[0]),  # this is actually so dumb
-                                      int(colour[1]) if int(colour[0]) != 255 or not int(colour[1]) else int(colour[1]) + 1,
-                                      int(colour[2]) if int(colour[0]) != 255 or not int(colour[2]) else int(colour[2]) + 1)
+                                      int(colour[1]) if int(colour[0]) != 255 or not int(colour[1]) else int(
+                                          colour[1]) + 1,
+                                      int(colour[2]) if int(colour[0]) != 255 or not int(colour[2]) else int(
+                                          colour[2]) + 1)
         if self.ui.checkBox.isChecked():
             if not re.match(self.urlregexp, self.ui.remote.text()):
                 errbox = QMessageBox()
@@ -188,7 +377,7 @@ class Form(QDialog):
         else:
             self.addRepoFromExisting(path, hexcolour, self.repos)
 
-        self.updateTable()
+        self.updateTables()
 
     @staticmethod
     def addRepoFromExisting(path, hexcolour, repos, quiet=False):
@@ -200,9 +389,9 @@ class Form(QDialog):
             else:
                 errbox = QMessageBox()
                 errbox.setText("Path not found")
-                errbox.exec()                               # look we've got error messages and everything
+                errbox.exec()  # look we've got error messages and everything
             return 1
-        except git.exc.InvalidGitRepositoryError:           # means it *has* to be good code
+        except git.exc.InvalidGitRepositoryError:  # means it *has* to be good code
             if quiet:
                 print("Path does not contain a valid git repository")
             else:
@@ -253,7 +442,8 @@ class Form(QDialog):
             if os.path.exists(path[:path.rindex('/')]):
                 if quiet:
                     print("Specified folder does not exist but is in a valid directory.")
-                    if input("Would you like to create the folder and clone the repository there? [Y/N]: ").lower().strip() != 'y':
+                    if input(
+                            "Would you like to create the folder and clone the repository there? [Y/N]: ").lower().strip() != 'y':
                         print("Exiting.")
                         return 1
                     os.mkdir(path)
@@ -293,124 +483,14 @@ class Form(QDialog):
         return False
 
 
-helptext = """
-Usage:
-configurator.py <arguments> <path> <colour>
-
-Path:   Path where the repository will be cloned (if -c is specified) and added to the config
-Colour: Colour code in hex (RRGGBB) used for embeds about the specified repository
-
-Arguments:
--c url  / --clone=url           clone the repo at $url to $path
--d      / --delete              removes the repo at $path from the config file
--o file / --config-file=file    outputs to the config file at the specified path, rather than `../info.json`
--l      / --list                shows all entries currently in the specified config file
--h      / --help                shows help
-"""
 if __name__ == '__main__':
-    repos = []
-    sysupdates = []
-    config_path = "../info.json"
+    json_path = "../info.json"
+    ini_path = "../frii_update.ini"
 
-    if len(sys.argv) > 1:
-        url = ''
-        path = ''
-        colour = ''
-        mode = 'a'
-        # argparse does not exist and i will not use it
-        for opt in enumerate(sys.argv[1:]):
-            if opt[1].startswith('-'):
-                # switch statements in python when
-                if opt[1] == "-c":
-                    url = sys.argv[opt[0]+2]        # why +2?
-                elif opt[1].startswith("--clone"):  # same reason as explained below
-                    url = opt[1].split('=')[1]
-                elif opt[1] == "-o":
-                    config_path = sys.argv[opt[0] + 2]
-                elif opt[1].startswith("--config-file"):
-                    config_path = opt[1].split('=')[1]
-                elif opt[1] == '-d' or opt[1] == "--delete":
-                    mode = 'd'
-                elif opt[1] == '-l' or opt[1] == "--list":
-                    mode = 'l'
-                elif opt[1] == '-h' or opt[1] == "--help":
-                    print(helptext)
-                    sys.exit()
-            else:
-                # you might think that it should be sys.argv[opt[0]-1]
-                # but opt[0] is the index for sys.argv[1:], not sys.argv
-                # so opt[0]-1 would be 2 items before and would not only be wrong
-                # but could also be out of bounds
-                if sys.argv[opt[0]] != '-o' and sys.argv[opt[0]] != '-c':
-                    if re.match("[0-9a-fA-F]{6,}", opt[1]):
-                        colour = opt[1]
-                    else:
-                        path = opt[1]
-
-        if len(sys.argv) < 3 and mode == 'a':
-            print("No colour provided")
-            sys.exit(2)
-        if colour == '' and mode == 'a':
-            print("Invalid colour provided")
-            sys.exit(2)
-        if os.path.exists(config_path):
-            file = json.load(open(config_path))
-            sysupdates = file["sysupdates"]
-            repos = file["repos"]
-        else:
-            if input("Specified config file does not exist. Create it? [Y/N]: ").lower() == 'y':
-                open(config_path, 'w')
-            else:
-                sys.exit()
-
-        if mode == 'd':
-            print("The following entry will be deleted: ")  # i might've let this accept multiple but i don't know how
-            print(path)
-            if input("Are you sure? [Y/N]: ").lower() == 'y':
-                for repo in enumerate(repos):
-                    if repo[1][0] == path:
-                        repos.pop(repo[0])
-                        if input("Would you like to on disk as well? [Y/N]: ").lower() == 'y':
-                            os.rmdir(path)
-                        break
-                else:
-                    print("Entry not found, no changes made")
-                    sys.exit()
-                print("Entry deleted, saving changes.")
-                Form.apply(True)
-            else:
-                print("Exiting")
-                sys.exit()
-        elif mode == 'l':
-            print(f"Entries in {config_path}")
-            for i in repos:
-                print(f"{i[0]}, {hex(i[1])}")
-        elif mode == 'a':
-            for r in enumerate(repos):
-                if r[1][0] == path:
-                    print(f"{path} is already listed in {config_path}")
-                    sys.exit(1)
-            if url != '':
-                if re.match("http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+", url):
-                    if Form.addNewRepo(path, url, colour, repos, True):
-                        sys.exit(1)
-                else:
-                    print("Invalid url provided")
-                    sys.exit(2)
-            else:
-                if Form.addRepoFromExisting(path, colour, repos, True):
-                    sys.exit(1)
-            print("Saving changes")
-            Form.apply([repos, sysupdates], True)
-
-    else:
-        file = []
-        if os.path.exists(config_path):
-            file = json.load(open(config_path))
-        # Create the Qt Application
-        app = QApplication()
-        # Create and show the form
-        form = Form(file, config_path)
-        form.show()
-        # Run the main Qt loop
-        sys.exit(app.exec_())
+    # Create the Qt Application
+    app = QApplication()
+    # Create and show the form
+    form = Form(json_path, ini_path)
+    form.show()
+    # Run the main Qt loop
+    sys.exit(app.exec_())
