@@ -4,6 +4,7 @@ import re
 import git
 import json
 import os
+import inspect
 from itertools import chain
 from colorpicker import ColorPicker
 from PySide6.QtWidgets import (QApplication, QMainWindow, QMessageBox,
@@ -14,12 +15,8 @@ from mainwindow import Ui_MainWindow
 
 
 # TODO:
-# change between frii_update.ini and info.json
-# editing needs debugging
-# adding TBC
-# deleting needs testing
-# methods left to be ported:
-#    deleteEntry
+# adding: unstarted
+# should probably find a way to clear the selection after deletions (both ini and json)
 
 
 class Form(QMainWindow):
@@ -101,25 +98,18 @@ class Form(QMainWindow):
 
     @Slot()
     def onEditini(self, item):
-        # despite section headers not being editable this method is called any time an item changes
-        # this includes every time self.updateTables runs
-        # which redraws every item in the table
-        # including the section headers
-        # sigh
-        if item.row()+1 in self.indices.values():
+        if "self.updateTables" in inspect.stack()[2].code_context[0]:  # come at me
             return
         elif item.column() == 0:
-            secs = 1  # SEX?!?!?!?!?!?!!?!
-            for section in self.indices:
-                if item.row() < self.indices[section]:  # first occurrence of this must always break to avoid repeating itself
-                    section = list(self.indices.keys())[secs-2]
+            secs = 3  # SEX?!?!?!?!?!?!!?!
+            for section in reversed(self.indices):
+                if (item.row()+1) > self.indices[section]:  # first occurrence of this must always break to avoid repeating itself
                     if item.text() in self.inicontents[section]:
                         pass  # no change
                     else:
                         # pad: no. of section headers + no. of entries in previous sections
-                        pad = (secs-1) + (len(self.inicontents[list(self.indices)[secs-3]]) if secs > 1 else 0) + \
-                              (len(self.inicontents[list(self.indices)[secs - 4]]) if secs > 2 else 0) + \
-                              (len(self.inicontents[list(self.indices)[secs - 5]]) if secs > 3 else 0)
+                        pad = secs + (len(self.inicontents[list(self.indices)[0]]) if secs > 1 else 0) + \
+                              (len(self.inicontents[list(self.indices)[1]]) if secs > 2 else 0)
                         # list is so they can be indexed by num
                         originalKey = list(self.inicontents[section].keys()) \
                             [item.row() - pad]
@@ -131,14 +121,16 @@ class Form(QMainWindow):
                             return
                         self.inicontents[section][item.text()] = self.ui.initable.item(item.row(), 1).text()
                         self.inicontents[section].pop(originalKey)
+                        # this action changes the order of the dict in most cases, so without updating the table
+                        # the actual position of items can desync which leads to very buggy behaviour
+                        self.updateTables()
                     break
-                secs += 1
+                secs -= 1
 
         else:  # item is a value, which should in theory require less fuckery
-            secs = 1
-            for section in self.indices:
-                if item.row() < self.indices[section]:
-                    section = list(self.indices.keys())[secs-2]
+            secs = 3
+            for section in reversed(self.indices):
+                if (item.row()+1) > self.indices[section]:
                     key = self.ui.initable.item(item.row(), 0).text()
                     originalVal = self.inicontents[section][key]
                     if item.text() == originalVal:
@@ -152,8 +144,9 @@ class Form(QMainWindow):
                             return
                         # TODO store types of keys and enforce typechecking
                         self.inicontents[section][key] = item.text()
+                        self.updateTables()
                     break
-                secs += 1
+                secs -= 1
 
     @Slot()
     def onEdit(self, item):
@@ -229,6 +222,12 @@ class Form(QMainWindow):
 
     @Slot()
     def deleteEntryini(self):
+        for k in self.inicontents:
+            if k in self.selected["ini"]:
+                errbox = QMessageBox()
+                errbox.setText("Section headers cannot be deleted.")  # TODO maybe
+                errbox.exec()
+                return
         confirm = QMessageBox()
         msg = "The following keys will be deleted:\n"
         for key in self.selected["ini"]:
@@ -240,11 +239,14 @@ class Form(QMainWindow):
             return
 
         for item in self.selected["ini"]:
-            s = 0
-            for section in self.indices:
-                if item[1] < self.indices[section]:
-                    self.inicontents[list(self.indices)[s-2]].pop(item[0])
-                s += 1
+            for section in reversed(self.indices):
+                if (item[1]+1) > self.indices[section]:
+                    self.inicontents[section].pop(item[0])
+                    break
+
+        msgbox = QMessageBox()
+        msgbox.setText(f"Successfully removed {len(self.selected['ini'])} entries!")
+        msgbox.exec()
 
         self.updateTables()
 
