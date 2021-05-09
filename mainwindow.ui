@@ -36,9 +36,7 @@
       </rect>
      </property>
      <property name="font">
-      <font>
-       <family>Monospace</family>
-      </font>
+      <font/>
      </property>
      <property name="editTriggers">
       <set>QAbstractItemView::DoubleClicked</set>
@@ -135,6 +133,22 @@
      </property>
      <property name="text">
       <string>Delete</string>
+     </property>
+    </widget>
+    <widget class="QPushButton" name="iniadd">
+     <property name="enabled">
+      <bool>false</bool>
+     </property>
+     <property name="geometry">
+      <rect>
+       <x>100</x>
+       <y>520</y>
+       <width>80</width>
+       <height>21</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>Insert</string>
      </property>
     </widget>
    </widget>
@@ -243,9 +257,7 @@
       </rect>
      </property>
      <property name="font">
-      <font>
-       <family>Monospace</family>
-      </font>
+      <font/>
      </property>
      <property name="editTriggers">
       <set>QAbstractItemView::DoubleClicked</set>

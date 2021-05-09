@@ -8,15 +8,35 @@ import inspect
 from itertools import chain
 from colorpicker import ColorPicker
 from PySide6.QtWidgets import (QApplication, QMainWindow, QMessageBox,
-                               QTableWidgetItem, QFileDialog)
+                               QTableWidgetItem, QFileDialog, QDialog)
 from PySide6.QtCore import Slot, Qt
 from PySide6.QtGui import QColor, QFont
 from mainwindow import Ui_MainWindow
+from addinidialog import Ui_Dialog
 
 
 # TODO:
-# adding: unstarted
+# adding/deleting sections (maybe?)
 # should probably find a way to clear the selection after deletions (both ini and json)
+
+
+class AddIniDialog(QDialog):
+    def __init__(self, parent=None):
+        super(AddIniDialog, self).__init__(parent)
+        self.ui = Ui_Dialog()
+        self.ui.setupUi(self)
+        self.retval = "Cancel"
+
+        self.ui.buttonBox.clicked.connect(self.a)
+
+    @Slot()
+    def a(self, button):
+        self.retval = button.text()
+        self.close()
+
+    def exec_(self):
+        super(AddIniDialog, self).exec_()
+        return self.retval, self.ui.key.text(), self.ui.val.text()
 
 
 class Form(QMainWindow):
@@ -53,6 +73,7 @@ class Form(QMainWindow):
         self.ui.apply.clicked.connect(lambda: self.apply(False))
         self.ui.checkBox.stateChanged.connect(lambda: self.ui.remote.setEnabled(self.ui.checkBox.isChecked()))
         self.ui.delentry.clicked.connect(self.deleteEntry)
+        self.ui.iniadd.clicked.connect(self.addIniKey)
         self.ui.iniapply.clicked.connect(lambda: self.apply(False))
         self.ui.inidel.clicked.connect(self.deleteEntryini)
         self.ui.inipath.setText(self.ini_path)
@@ -60,11 +81,48 @@ class Form(QMainWindow):
         self.ui.initable.itemSelectionChanged.connect(lambda: self.onSelectedTableItem("ini"))
         self.ui.openjson.triggered.connect(lambda: self.openhandler("json"))
         self.ui.openini.triggered.connect(lambda: self.openhandler("ini"))
-        self.ui.table.itemChanged.connect(self.onEdit)
+        self.ui.table.itemChanged.connect(self.onEditjson)
         self.ui.table.itemSelectionChanged.connect(lambda: self.onSelectedTableItem("json"))
         self.ui.textBrowser.setText(self.json_path)
 
         self.updateTables()
+
+    @Slot()
+    def addIniKey(self):
+        if len(self.selected["ini"]) > 1:
+            errbox = QMessageBox()
+            errbox.setText("What do you want from me how do am I meant to know where you want to insert the new key like this?")
+            errbox.exec()
+            return
+
+        for section in reversed(self.indices):
+            # [0]: first and in theory only item
+            # [1]: row number
+            # +1 : meddling off-by-one errors
+            # >= : if a section header is selected, expected behaviour would be insert under that section
+            if (self.selected["ini"][0][1] + 1) >= self.indices[section]:
+                dialog = AddIniDialog(self)
+                dialog.show()
+                # "Cancel"/"Apply",  key.text(),  value.text()
+                res = dialog.exec_()
+                if res[0] == "Cancel":
+                    return
+                else:
+                    key, val = res[1], res[2]
+                    if not key:
+                        errbox = QMessageBox()
+                        errbox.setText("Key cannot be empty")
+                        errbox.exec()
+                        return
+                    if not val:
+                        errbox = QMessageBox()
+                        errbox.setText("Value cannot be empty")
+                        errbox.exec()
+                        return
+                    self.inicontents[section][key] = val
+                    self.updateTables()
+                    return
+                break
 
     def checkAndSaveChanges(self):
         old, oldini = {}, {}
@@ -149,7 +207,7 @@ class Form(QMainWindow):
                 secs -= 1
 
     @Slot()
-    def onEdit(self, item):
+    def onEditjson(self, item):
         if item.text() in chain.from_iterable(self.repos) or self.isColour(item.text()):
             return  # no change
         else:
@@ -225,7 +283,7 @@ class Form(QMainWindow):
         for k in self.inicontents:
             if k in self.selected["ini"]:
                 errbox = QMessageBox()
-                errbox.setText("Section headers cannot be deleted.")  # TODO maybe
+                errbox.setText("Section headers cannot be deleted.")
                 errbox.exec()
                 return
         confirm = QMessageBox()
@@ -330,11 +388,13 @@ class Form(QMainWindow):
             self.selected["ini"].clear()
             if len(self.ui.initable.selectedItems()) >= 2:  # at least 1 row is selected
                 self.ui.inidel.setEnabled(True)
+                self.ui.iniadd.setEnabled(True)
                 for item in self.ui.initable.selectedItems():
                     if item.column() == 0:                  # here we want keys not values
-                        self.selected["ini"].append((item.text(), item.row()))  # we need the row for key deletions
+                        self.selected["ini"].append((item.text(), item.row()))  # we need the row number for later use
             else:
                 self.ui.inidel.setEnabled(False)
+                self.ui.iniadd.setEnabled(False)
 
         else:
             raise Exception("You did a fuck")
