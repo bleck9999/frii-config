@@ -16,6 +16,7 @@ from addinidialog import Ui_Dialog
 
 
 # TODO:
+# info.json changes for watching
 # adding/deleting sections (maybe?)
 # should probably find a way to clear the selection after deletions (both ini and json)
 
@@ -48,7 +49,7 @@ class Form(QMainWindow):
 
         self.json_path = json_path
         self.ini_path = ini_path
-        jscontents = []
+        jscontents = {"repos": [], "sysupdates": []}
         if os.path.exists(json_path):
             jscontents = json.load(open(json_path))
         inicontents = {}
@@ -555,4 +556,4 @@ if __name__ == '__main__':
     form = Form(json_path, ini_path)
     form.show()
     # Run the main Qt loop
-    sys.exit(app.exec_())
+    sys.exit(app.exec())

@@ -3,15 +3,23 @@
 ################################################################################
 ## Form generated from reading UI file 'mainwindow.ui'
 ##
-## Created by: Qt User Interface Compiler version 6.0.1
+## Created by: Qt User Interface Compiler version 6.2.2
 ##
 ## WARNING! All changes made in this file will be lost when recompiling UI file!
 ################################################################################
 
-from PySide6.QtCore import *
-from PySide6.QtGui import *
-from PySide6.QtWidgets import *
-
+from PySide6.QtCore import (QCoreApplication, QDate, QDateTime, QLocale,
+    QMetaObject, QObject, QPoint, QRect,
+    QSize, QTime, QUrl, Qt)
+from PySide6.QtGui import (QAction, QBrush, QColor, QConicalGradient,
+    QCursor, QFont, QFontDatabase, QGradient,
+    QIcon, QImage, QKeySequence, QLinearGradient,
+    QPainter, QPalette, QPixmap, QRadialGradient,
+    QTransform)
+from PySide6.QtWidgets import (QAbstractItemView, QApplication, QCheckBox, QHeaderView,
+    QLabel, QLineEdit, QMainWindow, QMenu,
+    QMenuBar, QPushButton, QSizePolicy, QTableWidget,
+    QTableWidgetItem, QTextBrowser, QWidget)
 
 class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
@@ -157,7 +165,7 @@ class Ui_MainWindow(object):
         self.openini.setText(QCoreApplication.translate("MainWindow", u"Main config (frii_update.ini)", None))
         self.openjson.setText(QCoreApplication.translate("MainWindow", u"Repository information (info.json)", None))
         self.inilabel.setText(QCoreApplication.translate("MainWindow", u"Configuration (frii_update.ini)", None))
-        self.iniapply.setText(QCoreApplication.translate("MainWindow", u"Apply", None))
+        self.iniapply.setText(QCoreApplication.translate("MainWindow", u"Save", None))
         self.inidel.setText(QCoreApplication.translate("MainWindow", u"Delete", None))
         self.iniadd.setText(QCoreApplication.translate("MainWindow", u"Insert", None))
         self.checkBox.setText(QCoreApplication.translate("MainWindow", u"Clone repository", None))
@@ -165,7 +173,7 @@ class Ui_MainWindow(object):
         self.remote.setText(QCoreApplication.translate("MainWindow", u"Enter repository URL here", None))
         self.addButton.setText(QCoreApplication.translate("MainWindow", u"Next", None))
         self.path.setText(QCoreApplication.translate("MainWindow", u"Enter repository path here", None))
-        self.apply.setText(QCoreApplication.translate("MainWindow", u"Apply", None))
+        self.apply.setText(QCoreApplication.translate("MainWindow", u"Save", None))
         self.label.setText(QCoreApplication.translate("MainWindow", u"Saved Information (info.json)", None))
         self.File.setTitle(QCoreApplication.translate("MainWindow", u"File", None))
         self.menuOpen.setTitle(QCoreApplication.translate("MainWindow", u"Open", None))
