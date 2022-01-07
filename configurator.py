@@ -77,6 +77,7 @@ class Form(QMainWindow):
         self.ui.iniadd.clicked.connect(self.addIniKey)
         self.ui.iniapply.clicked.connect(lambda: self.apply(False))
         self.ui.inidel.clicked.connect(self.deleteEntryini)
+        self.ui.browse.clicked.connect(self.repoPath)
         self.ui.inipath.setText(self.ini_path)
         self.ui.initable.itemChanged.connect(self.onEditini)
         self.ui.initable.itemSelectionChanged.connect(lambda: self.onSelectedTableItem("ini"))
@@ -87,6 +88,11 @@ class Form(QMainWindow):
         self.ui.textBrowser.setText(self.json_path)
 
         self.updateTables()
+
+    @Slot()
+    def repoPath(self):
+        tmp = QFileDialog.getExistingDirectory(self, "Open config", os.getcwd())
+        self.ui.path.setText(tmp)
 
     @Slot()
     def addIniKey(self):
