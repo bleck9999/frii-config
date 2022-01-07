@@ -35,8 +35,8 @@ class AddIniDialog(QDialog):
         self.retval = button.text()
         self.close()
 
-    def exec_(self):
-        super(AddIniDialog, self).exec_()
+    def exec(self):
+        super(AddIniDialog, self).exec()
         return self.retval, self.ui.key.text(), self.ui.val.text()
 
 
@@ -105,7 +105,7 @@ class Form(QMainWindow):
                 dialog = AddIniDialog(self)
                 dialog.show()
                 # "Cancel"/"Apply",  key.text(),  value.text()
-                res = dialog.exec_()
+                res = dialog.exec()
                 if res[0] == "Cancel":
                     return
                 else:
@@ -123,7 +123,6 @@ class Form(QMainWindow):
                     self.inicontents[section][key] = val
                     self.updateTables()
                     return
-                break
 
     def checkAndSaveChanges(self):
         old, oldini = {}, {}
