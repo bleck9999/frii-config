@@ -16,7 +16,8 @@ from PySide6.QtGui import (QBrush, QColor, QConicalGradient, QCursor,
     QImage, QKeySequence, QLinearGradient, QPainter,
     QPalette, QPixmap, QRadialGradient, QTransform)
 from PySide6.QtWidgets import (QAbstractButton, QApplication, QDialog, QDialogButtonBox,
-    QLabel, QLineEdit, QSizePolicy, QWidget)
+    QLabel, QLineEdit, QRadioButton, QSizePolicy,
+    QWidget)
 
 class Ui_Dialog(object):
     def setupUi(self, Dialog):
@@ -45,6 +46,13 @@ class Ui_Dialog(object):
         self.val.setGeometry(QRect(240, 40, 211, 22))
         font1 = QFont()
         self.val.setFont(font1)
+        self.ins_option = QRadioButton(Dialog)
+        self.ins_option.setObjectName(u"ins_option")
+        self.ins_option.setGeometry(QRect(10, 70, 111, 23))
+        self.ins_option.setChecked(True)
+        self.ins_section = QRadioButton(Dialog)
+        self.ins_section.setObjectName(u"ins_section")
+        self.ins_section.setGeometry(QRect(10, 100, 96, 23))
 
         self.retranslateUi(Dialog)
         self.buttonBox.accepted.connect(Dialog.accept)
@@ -57,5 +65,7 @@ class Ui_Dialog(object):
         Dialog.setWindowTitle(QCoreApplication.translate("Dialog", u"Add key", None))
         self.label.setText(QCoreApplication.translate("Dialog", u"Key:", None))
         self.label_2.setText(QCoreApplication.translate("Dialog", u"Value:", None))
+        self.ins_option.setText(QCoreApplication.translate("Dialog", u"Insert option", None))
+        self.ins_section.setText(QCoreApplication.translate("Dialog", u"Insert section", None))
     # retranslateUi
 

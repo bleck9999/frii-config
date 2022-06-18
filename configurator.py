@@ -16,8 +16,7 @@ from addinidialog import Ui_Dialog
 
 
 # TODO:
-# info.json changes for watching
-# adding/deleting sections (maybe?)
+# deleting sections
 # should probably find a way to clear the selection after deletions (both ini and json)
 
 
@@ -27,8 +26,21 @@ class AddIniDialog(QDialog):
         self.ui = Ui_Dialog()
         self.ui.setupUi(self)
         self.retval = "Cancel"
+        self.type = "option"
 
         self.ui.buttonBox.clicked.connect(self.a)
+        self.ui.ins_option.toggled.connect(self.changetype)
+        # we only need to connect one of them because toggling one also toggles the other
+
+    @Slot()
+    def changetype(self):
+        if self.ui.ins_option.isChecked():
+            self.type = "option"
+            self.ui.val.setDisabled(False)
+        else:
+            self.type = "section"
+            self.ui.val.setDisabled(True)
+        print(self.type)
 
     @Slot()
     def a(self, button):
@@ -37,13 +49,14 @@ class AddIniDialog(QDialog):
 
     def exec(self):
         super(AddIniDialog, self).exec()
-        return self.retval, self.ui.key.text(), self.ui.val.text()
+        return self.retval, self.ui.key.text(), self.ui.val.text(), self.type
 
 
 class Form(QMainWindow):
     def __init__(self, json_path, ini_path, parent=None):
         super(Form, self).__init__(parent)
         self.urlregexp = re.compile("http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+")
+        # todo at some point modify this to include ssh urls
         self.ui = Ui_MainWindow()
         self.ui.setupUi(self)
 
@@ -58,23 +71,20 @@ class Form(QMainWindow):
             inicontents.read(ini_path)
         self.inicontents = inicontents.__dict__["_sections"]  # python is a great language
         self.indices = {}
-        n = 1
-        for x in self.inicontents:
-            self.indices[x] = n
-            n += len(self.inicontents[x]) + 1
+        self.calc_indices()
         self.repos = jscontents["repos"]
         self.sysupdates = jscontents["sysupdates"]
         self.selected = {"json": [], "ini": []}
         self.ui.table.setHorizontalHeaderLabels(["Colour", "Path"])
         self.ui.initable.setHorizontalHeaderLabels(["Key", "Value"])
 
-        self.ui.actionExit_2.triggered.connect(self.exit)
+        self.ui.actionExit_2.triggered.connect(self.close)
         self.ui.actionSave.triggered.connect(lambda: self.apply())
         self.ui.addButton.clicked.connect(self.addRepoHandler)
         self.ui.apply.clicked.connect(lambda: self.apply(False))
         self.ui.checkBox.stateChanged.connect(lambda: self.ui.remote.setEnabled(self.ui.checkBox.isChecked()))
         self.ui.delentry.clicked.connect(self.deleteEntry)
-        self.ui.iniadd.clicked.connect(self.addIniKey)
+        self.ui.iniadd.clicked.connect(self.iniInsert)
         self.ui.iniapply.clicked.connect(lambda: self.apply(False))
         self.ui.inidel.clicked.connect(self.deleteEntryini)
         self.ui.browse.clicked.connect(self.repoPath)
@@ -89,48 +99,61 @@ class Form(QMainWindow):
 
         self.updateTables()
 
+    def calc_indices(self):
+        n = 1
+        for x in self.inicontents:
+            self.indices[x] = n
+            n += len(self.inicontents[x]) + 1
+
     @Slot()
     def repoPath(self):
         tmp = QFileDialog.getExistingDirectory(self, "Open config", os.getcwd())
         self.ui.path.setText(tmp)
 
     @Slot()
-    def addIniKey(self):
+    def iniInsert(self):
         if len(self.selected["ini"]) > 1:
             errbox = QMessageBox()
-            errbox.setText("What do you want from me how do am I meant to know where you want to insert the new key like this?")
+            errbox.setText("Please only select 1 item before inserting")
             errbox.exec()
             return
 
+        dialog = AddIniDialog(self)
+        dialog.show()
+        # "Cancel"/"Apply",  key.text(),  value.text(), "option"/"section"
+        res = dialog.exec()
+        if res[0] == "Cancel":
+            return
+
+        key, val = res[1], res[2]
+        if not key:
+            errbox = QMessageBox()
+            errbox.setText("Key cannot be empty")
+            errbox.exec()
+            return
+
+        if res[3] == "option":
+            self.addIniKey(res)
+        else:
+            self.addIniSection(res)
+
+    def addIniSection(self, res):
+        self.inicontents[res[1]] = {}
+        self.calc_indices()
+        self.updateTables()
+
+    def addIniKey(self, res):
         for section in reversed(self.indices):
             # [0]: first and in theory only item
             # [1]: row number
             # +1 : meddling off-by-one errors
             # >= : if a section header is selected, expected behaviour would be insert under that section
             if (self.selected["ini"][0][1] + 1) >= self.indices[section]:
-                dialog = AddIniDialog(self)
-                dialog.show()
-                # "Cancel"/"Apply",  key.text(),  value.text()
-                res = dialog.exec()
-                if res[0] == "Cancel":
-                    return
-                else:
-                    key, val = res[1], res[2]
-                    if not key:
-                        errbox = QMessageBox()
-                        errbox.setText("Key cannot be empty")
-                        errbox.exec()
-                        return
-                    if not val:
-                        errbox = QMessageBox()
-                        errbox.setText("Value cannot be empty")
-                        errbox.exec()
-                        return
-                    self.inicontents[section][key] = val
-                    self.updateTables()
-                    return
+                self.inicontents[section][res[1]] = res[2]
+                self.updateTables()
+                return
 
-    def checkAndSaveChanges(self):
+    def closeEvent(self, event):
         old, oldini = {}, {}
         if open(self.json_path).read() != '':
             old = json.load(open(self.json_path))
@@ -138,11 +161,13 @@ class Form(QMainWindow):
             old = {"repos": [], "sysupdates": []}
 
         if open(self.ini_path).read() != '':
-            oldini = configparser.ConfigParser().read(self.ini_path)
+            oldini = configparser.ConfigParser()
+            oldini.read(self.ini_path)
+            oldini = oldini.__dict__["_sections"]
         else:
             oldini = {}
 
-        if (old["repos"] == self.repos and old["sysupdates"] == self.sysupdates) or \
+        if (old["repos"] == self.repos and old["sysupdates"] == self.sysupdates) and \
                 (oldini == self.inicontents):
             pass
         else:
@@ -151,14 +176,11 @@ class Form(QMainWindow):
             confirm.setStandardButtons(QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel)
             ret = confirm.exec()
             if ret == QMessageBox.Cancel:
-                return 1
+                event.ignore()
+                return
             elif ret == QMessageBox.Yes:
                 self.apply()
-
-    @Slot()
-    def exit(self):
-        self.checkAndSaveChanges()
-        self.close()
+            event.accept()
 
     @Slot()
     def onEditini(self, item):
@@ -175,8 +197,7 @@ class Form(QMainWindow):
                         pad = secs + (len(self.inicontents[list(self.indices)[0]]) if secs > 1 else 0) + \
                               (len(self.inicontents[list(self.indices)[1]]) if secs > 2 else 0)
                         # list is so they can be indexed by num
-                        originalKey = list(self.inicontents[section].keys()) \
-                            [item.row() - pad]
+                        originalKey = list(self.inicontents[section].keys())[item.row() - pad]
                         if not item.text():
                             errbox = QMessageBox()
                             errbox.setText("Key cannot be empty")
@@ -206,7 +227,6 @@ class Form(QMainWindow):
                             errbox.exec()
                             item.setText(originalVal)
                             return
-                        # TODO store types of keys and enforce typechecking
                         self.inicontents[section][key] = item.text()
                         self.updateTables()
                     break
@@ -286,8 +306,8 @@ class Form(QMainWindow):
 
     @Slot()
     def deleteEntryini(self):
-        for k in self.inicontents:
-            if k in self.selected["ini"]:
+        for k in self.selected["ini"]:
+            if k[0] in self.inicontents:
                 errbox = QMessageBox()
                 errbox.setText("Section headers cannot be deleted.")
                 errbox.exec()
