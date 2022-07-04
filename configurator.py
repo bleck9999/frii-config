@@ -16,7 +16,6 @@ from addinidialog import Ui_Dialog
 
 
 # TODO:
-# deleting sections
 # should probably find a way to clear the selection after deletions (both ini and json)
 
 
@@ -306,32 +305,42 @@ class Form(QMainWindow):
 
     @Slot()
     def deleteEntryini(self):
+        sections, keys = [], []
         for k in self.selected["ini"]:
-            if k[0] in self.inicontents:
-                errbox = QMessageBox()
-                errbox.setText("Section headers cannot be deleted.")
-                errbox.exec()
-                return
+            key = k[0]
+            if key in self.inicontents:
+                sections.append(key)
+                startidx = self.indices[key]
+                for i, v in zip(range(startidx, startidx+len(self.inicontents[key])), self.inicontents[key].keys()):
+                    keys.append((v, i))
+            elif k not in keys:
+                keys.append(k)
+
         confirm = QMessageBox()
-        msg = "The following keys will be deleted:\n"
-        for key in self.selected["ini"]:
-            msg += key[0] + "\n"
+        msg = "The following items will be deleted:\n"
+        for sec in sections:
+            msg += f"Section: {sec}\n"
+        for key in keys:
+            msg += f"Key: {key[0]}\n"
         msg += "Are you sure?"
         confirm.setText(msg)
         confirm.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
         if confirm.exec() != QMessageBox.Yes:
             return
 
-        for item in self.selected["ini"]:
+        for item in keys:
             for section in reversed(self.indices):
                 if (item[1]+1) > self.indices[section]:
                     self.inicontents[section].pop(item[0])
                     break
+        for sec in sections:
+            self.inicontents.pop(sec)
 
         msgbox = QMessageBox()
-        msgbox.setText(f"Successfully removed {len(self.selected['ini'])} entries!")
+        msgbox.setText(f"Successfully removed {len(sections)} sections and {len(keys)} items!")
         msgbox.exec()
 
+        self.calc_indices()
         self.updateTables()
 
     @Slot()
