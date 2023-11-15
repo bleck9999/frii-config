@@ -61,7 +61,7 @@ class Form(QMainWindow):
 
         self.json_path = json_path
         self.ini_path = ini_path
-        jscontents = {"repos": [], "sysupdates": []}
+        jscontents = []
         if os.path.exists(json_path):
             jscontents = json.load(open(json_path))
         inicontents = {}
@@ -71,8 +71,7 @@ class Form(QMainWindow):
         self.inicontents = inicontents.__dict__["_sections"]  # python is a great language
         self.indices = {}
         self.calc_indices()
-        self.repos = jscontents["repos"]
-        self.sysupdates = jscontents["sysupdates"]
+        self.repos = jscontents
         self.selected = {"json": [], "ini": []}
         self.ui.table.setHorizontalHeaderLabels(["Colour", "Path"])
         self.ui.initable.setHorizontalHeaderLabels(["Key", "Value"])
@@ -157,7 +156,7 @@ class Form(QMainWindow):
         if open(self.json_path).read() != '':
             old = json.load(open(self.json_path))
         else:
-            old = {"repos": [], "sysupdates": []}
+            old = []
 
         if open(self.ini_path).read() != '':
             oldini = configparser.ConfigParser()
@@ -166,8 +165,7 @@ class Form(QMainWindow):
         else:
             oldini = {}
 
-        if (old["repos"] == self.repos and old["sysupdates"] == self.sysupdates) and \
-                (oldini == self.inicontents):
+        if (old == self.repos) and (oldini == self.inicontents):
             pass
         else:
             confirm = QMessageBox()
@@ -294,11 +292,9 @@ class Form(QMainWindow):
 
             if open(tmp).read() != '':
                 contents = json.load(open(tmp))
-                self.repos = contents["repos"]
-                self.sysupdates = contents["sysupdates"]
+                self.repos = contents
             else:
                 self.repos = []
-                self.sysupdates = []
             self.updateTables()
             self.json_path = tmp
             self.ui.textBrowser.setText(self.json_path)
@@ -436,8 +432,7 @@ class Form(QMainWindow):
 
     @Slot()
     def apply(self, quiet=True):
-        json.dump({"repos": self.repos,
-                   "sysupdates": self.sysupdates}, open(self.json_path, "w"))
+        json.dump(self.repos, open(self.json_path, "w"))
 
         ini = configparser.ConfigParser()
         ini.__dict__["_sections"] = self.inicontents
@@ -581,7 +576,7 @@ class Form(QMainWindow):
 
 
 if __name__ == '__main__':
-    json_path = "../info.json"
+    json_path = "../cogs/github/info.json"
     ini_path = "../frii_update.ini"
 
     # Create the Qt Application
